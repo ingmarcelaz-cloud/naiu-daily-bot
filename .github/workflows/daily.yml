@@ -1,0 +1,21 @@
+name: NAIU Daily Bot
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 7am Colombia = 12pm UTC
+  workflow_dispatch:  # permite correrlo manualmente también
+
+jobs:
+  send-daily:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Enviar mensaje diario
+        run: node index.js
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
