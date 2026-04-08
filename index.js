@@ -8,22 +8,12 @@ const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = '33c91e9cb74c800ea6b4df4ec7d32787';
 const PORT = process.env.PORT || 3000;
 
-const DESIGN_SYSTEM = `
-SISTEMA DE DISENO NAIU:
-- Fondo claro: #fffbf3 | Fondo oscuro: #1f3a33 | Acento: #ff5353
-- Patron fondos: Slide1 cream, Slide2 cream, Slide3 dark, Slide4 cream, Slide5 dark, Slide6 cream
-- Titulo hero slide1: serif italic bold, una palabra en rojo #ff5353
-- Titulos resto: sans-serif bold 22-28px
-- Cuerpo: max 60 palabras por slide
-- Badge pill arriba izquierda con dot rojo
-- Footer: @naiu_ia + barra progreso 3px
-- Dimensiones: 1080x1350px
-`;
+const DESIGN_SYSTEM = 'SISTEMA DE DISENO NAIU: Fondo claro #fffbf3, Fondo oscuro #1f3a33, Acento #ff5353. Patron: Slide1 cream, Slide2 cream, Slide3 dark, Slide4 cream, Slide5 dark, Slide6 cream. Titulo hero slide1 serif italic bold una palabra en rojo. Titulos resto sans-serif bold. Cuerpo max 60 palabras por slide. Badge pill arriba izquierda con dot rojo. Footer @naiu_ia + barra progreso. Dimensiones 1080x1350px.';
 
 let pendingIdeas = {};
 
 async function callClaude(prompt) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 3000,
@@ -38,10 +28,10 @@ async function callClaude(prompt) {
         'x-api-key': ANTHROPIC_API_KEY,
         'anthropic-version': '2023-06-01'
       }
-    }, (res) => {
+    }, function(res) {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() {
         try {
           const parsed = JSON.parse(data);
           if (parsed.content && parsed.content[0]) {
@@ -59,7 +49,7 @@ async function callClaude(prompt) {
 }
 
 async function sendTelegram(chatId, message) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const body = JSON.stringify({
       chat_id: chatId,
       text: message,
@@ -70,10 +60,10 @@ async function sendTelegram(chatId, message) {
       path: '/bot' + TELEGRAM_TOKEN + '/sendMessage',
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
-    }, (res) => {
+    }, function(res) {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() { resolve(JSON.parse(data)); });
     });
     req.on('error', reject);
     req.write(body);
@@ -82,7 +72,7 @@ async function sendTelegram(chatId, message) {
 }
 
 async function saveToNotion(hook, date) {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const body = JSON.stringify({
       parent: { database_id: NOTION_DATABASE_ID },
       properties: {
@@ -100,10 +90,10 @@ async function saveToNotion(hook, date) {
         'Authorization': 'Bearer ' + NOTION_TOKEN,
         'Notion-Version': '2022-06-28'
       }
-    }, (res) => {
+    }, function(res) {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() { resolve(JSON.parse(data)); });
     });
     req.on('error', reject);
     req.write(body);
@@ -112,7 +102,7 @@ async function saveToNotion(hook, date) {
 }
 
 async function getUsedIdeas() {
-  return new Promise((resolve, reject) => {
+  return new Promise(function(resolve, reject) {
     const body = JSON.stringify({
       filter: { property: 'Estado', select: { equals: 'Usada' } }
     });
@@ -125,10 +115,10 @@ async function getUsedIdeas() {
         'Authorization': 'Bearer ' + NOTION_TOKEN,
         'Notion-Version': '2022-06-28'
       }
-    }, (res) => {
+    }, function(res) {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() {
         const parsed = JSON.parse(data);
         const ideas = parsed.results ? parsed.results.map(function(p) {
           return p.properties && p.properties.Idea && p.properties.Idea.title && p.properties.Idea.title[0] ? p.properties.Idea.title[0].text.content : '';
@@ -142,40 +132,73 @@ async function getUsedIdeas() {
   });
 }
 
+async function saveIdeasToNotion(ideas, date) {
+  return new Promise(function(resolve, reject) {
+    const body = JSON.stringify({
+      parent: { database_id: NOTION_DATABASE_ID },
+      properties: {
+        Idea: { title: [{ text: { content: 'IDEAS_DEL_DIA: ' + ideas.substring(0, 500) } }] },
+        Fecha: { date: { start: date } },
+        Estado: { select: { name: 'Pendiente' } }
+      }
+    });
+    const req = https.request({
+      hostname: 'api.notion.com',
+      path: '/v1/pages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + NOTION_TOKEN,
+        'Notion-Version': '2022-06-28'
+      }
+    }, function(res) {
+      let data = '';
+      res.on('data', function(chunk) { data += chunk; });
+      res.on('end', function() { resolve(JSON.parse(data)); });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
 async function sendDailyIdeas(chatId) {
   const today = new Date().toLocaleDateString('es-CO', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   });
 
   const usedIdeas = await getUsedIdeas();
-  const usedSection = usedIdeas.length > 0 ? '\nIDEAS YA USADAS (no repetir):\n' + usedIdeas.slice(-10).join('\n') + '\n' : '';
+  const usedSection = usedIdeas.length > 0 ? '\nIDEAS YA USADAS (no repetir exactamente):\n' + usedIdeas.filter(function(i) { return !i.startsWith('IDEAS_DEL_DIA'); }).slice(-10).join('\n') + '\n' : '';
 
-  const prompt = 'Eres el cerebro estratega de NAIU, agencia de IA colombiana.\n\nAUDIENCIAS:\n1. Empresarios que pierden horas en tareas repetitivas\n2. Curiosos de IA que creen que es solo para programadores\n' + usedSection + '\nREGLA: Cada Slide 6 debe revelar herramienta real con nombre y que hace. Terminar con: Esto te esta pasando? Comenta SI y hablamos\n\nHoy es ' + today + '. Dame 5 ideas:\n\n1. HOOK: [frase potente]\nPor que funciona: [dolor]\nSlide 6: [herramienta + CTA]\n\n2. HOOK: [frase potente]\nPor que funciona: [dolor]\nSlide 6: [herramienta + CTA]\n\n3. HOOK: [frase potente]\nPor que funciona: [dolor]\nSlide 6: [herramienta + CTA]\n\n4. HOOK: [frase potente]\nPor que funciona: [dolor]\nSlide 6: [herramienta + CTA]\n\n5. HOOK: [frase potente]\nPor que funciona: [dolor]\nSlide 6: [herramienta + CTA]\n\nAl final: Responde 1, 2, 3, 4 o 5 para desarrollar esa idea';
+  const prompt = 'Eres el cerebro estratega de contenido de NAIU, una agencia de IA colombiana.\n\nAUDIENCIAS:\n1. Empresarios que pierden horas en tareas repetitivas (metricas, correos, reportes, seguimiento)\n2. Personas curiosas de IA que creen que es solo para programadores\n' + usedSection + '\nREGLA DE ORO SLIDE 6:\nSiempre revelar herramienta real con nombre y que hace exactamente. SIN precios.\nTerminar con: Esto te esta pasando? Comenta SI y hablamos\nNUNCA consejos genericos. NUNCA poner precios.\n\nEJEMPLOS DE SLIDE 6 BUENOS:\n- Make conecta tu Gmail con Claude y responde correos automaticamente. Configuracion: 20 minutos.\n- n8n tiene un agente que revisa tus ventas cada lunes y manda resumen al Telegram.\n- AgentHub maneja WhatsApp, Instagram y correo desde un solo lugar sin que toques nada.\n\nTONO: Profesional, directo, sin relleno. Nunca motivacional. Como alguien que sabe y comparte lo que otros no cuentan.\n\nHoy es ' + today + '. Dame exactamente 5 ideas:\n\n1. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n2. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n3. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n4. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n5. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\nAl final escribe exactamente: Responde con 1, 2, 3, 4 o 5 para desarrollar esa idea en slides';
 
   const ideas = await callClaude(prompt);
   pendingIdeas[chatId] = { ideas: ideas, date: new Date().toISOString().split('T')[0] };
+  await saveIdeasToNotion(ideas, new Date().toISOString().split('T')[0]);
   await sendTelegram(chatId, ideas);
 }
 
 async function generateSlides(chatId, ideaNumber) {
   const data = pendingIdeas[chatId];
   if (!data) {
-    await sendTelegram(chatId, 'No hay ideas pendientes. Escribe /ideas para obtener nuevas.');
+    await sendTelegram(chatId, 'Escribe /ideas para obtener nuevas ideas.');
     return;
   }
 
   const lines = data.ideas.split('\n');
-const hookLine = lines.find(l => l.includes(`${ideaNumber}. HOOK:`) || l.includes(`## ${ideaNumber}. HOOK:`));
+  const hookLine = lines.find(function(l) {
+    return l.includes(ideaNumber + '. HOOK:') || l.includes('## ' + ideaNumber + '. HOOK:') || l.includes('##' + ideaNumber + ' HOOK:') || l.includes(ideaNumber + ') HOOK:');
+  });
 
   if (!hookLine) {
-    await sendTelegram(chatId, 'Numero no valido. Responde con 1, 2, 3, 4 o 5.');
+    await sendTelegram(chatId, 'Escribe /ideas primero para obtener ideas nuevas, luego responde con 1-5.');
     return;
   }
 
-  const hook = hookLine.replace(/.*HOOK:\s*/, '').trim();
+  const hook = hookLine.replace(/.*HOOK:\s*/, '').replace(/"/g, '').trim();
   await sendTelegram(chatId, 'Generando los 6 slides para:\n"' + hook + '"\n\nEspera un momento...');
 
-  const prompt = 'Eres el generador de carruseles de NAIU (@naiu_ia).\n\n' + DESIGN_SYSTEM + '\n\nGenera 6 slides para este carousel.\nHOOK: "' + hook + '"\n\n---SLIDE 1---\nFONDO: cream\nBADGE: [categoria]\nTITULO HERO: [titulo serif italic, una palabra en rojo]\nSUBTITULO: [max 10 palabras]\nCTA BLOCK: "Mas en NAIU Newsletter"\nPROGRESO: 1/6\n\n---SLIDE 2---\nFONDO: cream\nBADGE: [categoria]\nTITULO: [titulo bold]\nPUNTO 1: [max 15 palabras]\nPUNTO 2: [max 15 palabras]\nPUNTO 3: [max 15 palabras]\nPROGRESO: 2/6\n\n---SLIDE 3---\nFONDO: dark\nBADGE: [categoria]\nTITULO: [titulo impactante]\nPRO TIP: [consejo, max 40 palabras]\nPROGRESO: 3/6\n\n---SLIDE 4---\nFONDO: cream\nBADGE: DATO CLAVE\nNUMERO GRANDE: [estadistica]\nCONTEXTO: [max 20 palabras]\nPROGRESO: 4/6\n\n---SLIDE 5---\nFONDO: dark\nBADGE: HERRAMIENTA\nTITULO: [nombre herramienta]\nPASO 1: [accion]\nPASO 2: [accion]\nPASO 3: [accion]\nCTA: Esto te esta pasando? Comenta SI y hablamos\nPROGRESO: 5/6\n\n---SLIDE 6---\nFONDO: cream\nBADGE: SIGUENOS\nTITULO: [frase de cierre]\nACCION 1: Guarda este post\nACCION 2: Comparte con alguien que lo necesite\nHANDLE: @naiu_ia\nPROGRESO: 6/6';
+  const prompt = 'Eres el generador de carruseles de NAIU (@naiu_ia).\n\n' + DESIGN_SYSTEM + '\n\nGenera exactamente 6 slides para este carousel de Instagram.\nHOOK: "' + hook + '"\n\n---SLIDE 1---\nFONDO: cream (#fffbf3)\nBADGE: [categoria en mayusculas]\nTITULO HERO: [titulo serif italic - una palabra clave en rojo #ff5353]\nSUBTITULO: [frase de apoyo max 10 palabras]\nCTA BLOCK: Mas en NAIU Newsletter\nPROGRESO: 1/6\n\n---SLIDE 2---\nFONDO: cream (#fffbf3)\nBADGE: [categoria]\nTITULO: [titulo bold]\nPUNTO 1: [max 15 palabras]\nPUNTO 2: [max 15 palabras]\nPUNTO 3: [max 15 palabras]\nPROGRESO: 2/6\n\n---SLIDE 3---\nFONDO: dark (#1f3a33)\nBADGE: [categoria]\nTITULO: [titulo impactante]\nPRO TIP: [consejo concreto max 40 palabras]\nPROGRESO: 3/6\n\n---SLIDE 4---\nFONDO: cream (#fffbf3)\nBADGE: DATO CLAVE\nNUMERO GRANDE: [estadistica o numero impactante]\nCONTEXTO: [explicacion breve max 20 palabras]\nPROGRESO: 4/6\n\n---SLIDE 5---\nFONDO: dark (#1f3a33)\nBADGE: HERRAMIENTA\nTITULO: [nombre herramienta]\nPASO 1: [accion concreta]\nPASO 2: [accion concreta]\nPASO 3: [accion concreta]\nCTA: Esto te esta pasando? Comenta SI y hablamos\nPROGRESO: 5/6\n\n---SLIDE 6---\nFONDO: cream (#fffbf3)\nBADGE: SIGUENOS\nTITULO: [frase de cierre poderosa]\nACCION 1: Guarda este post\nACCION 2: Comparte con alguien que lo necesite\nHANDLE: @naiu_ia\nPROGRESO: 6/6';
 
   const slides = await callClaude(prompt);
   await sendTelegram(chatId, slides);
@@ -200,7 +223,7 @@ const server = http.createServer(function(req, res) {
           } else if (text === '/ideas') {
             await sendDailyIdeas(chatId);
           } else {
-            await sendTelegram(chatId, 'Escribe /ideas para recibir 5 ideas, o responde 1-5 para desarrollar una.');
+            await sendTelegram(chatId, 'Escribe /ideas para recibir 5 ideas, luego responde 1-5 para desarrollar una.');
           }
         }
       } catch(e) {
