@@ -170,4 +170,12 @@ Slide 6: [herramienta real + que hace + CTA]
 
 5. HOOK: [frase que duela o sorprenda]
 Por que funciona: [dolor especifico]
-Slide 6: [herramienta
+Slide 6: [herramienta real + que hace + CTA]`;
+
+  const ideas = await callClaude(prompt);
+  await sendTelegram(ideas);
+  await saveToNotion(ideas);
+  console.log("Mensaje enviado y guardado en Notion!");
+}
+
+main().catch(console.error);
