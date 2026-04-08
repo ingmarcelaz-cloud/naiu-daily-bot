@@ -78,9 +78,13 @@ AUDIENCIAS:
 2. Personas curiosas de IA que creen que es solo para programadores
 
 REGLA DE ORO — SLIDE LLEVATE ESTO:
-Siempre revelar herramienta real con nombre, que hace exactamente, precio y tiempo de configuracion.
-Herramientas: Make, n8n, AgentHub, Claude, Zapier, Notion AI, WhatsApp Business API.
-NUNCA consejos genericos.
+REGLA DE ORO — SLIDE LLEVATE ESTO:
+Siempre revelar herramienta real con nombre y que hace exactamente. SIN precios.
+Al final de la slide 6 siempre terminar con un CTA que genere conversacion:
+"¿Esto te esta pasando? Comenta SI y hablamos" 
+o
+"¿Quieres implementar esto en tu negocio? Escribeme por DM"
+o similar — directo, sin prometer guias ni materiales.
 
 Hoy es ${today}. Dame 5 ideas de carrusel con este formato:
 
