@@ -228,7 +228,7 @@ async function generateSlides(chatId, ideaNumber) {
   }
 
   const lines = data.ideas.split("\n");
-  const hookLine = lines.find(l => l.startsWith(`${ideaNumber}. HOOK:`));
+ const hookLine = lines.find(l => l.includes(`${ideaNumber}. HOOK:`) || l.includes(`## ${ideaNumber}. HOOK:`));
   if (!hookLine) {
     await sendTelegram(chatId, "Número no válido. Responde con 1, 2, 3, 4 o 5.");
     return;
