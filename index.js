@@ -197,7 +197,8 @@ async function generateSlides(chatId, ideaNumber) {
 
   const hook = hookLine.replace(/.*HOOK:\s*/, '').replace(/"/g, '').trim();
   await sendTelegram(chatId, 'Generando los 6 slides para:\n"' + hook + '"\n\nEspera un momento...');
-
+  
+IMPORTANTE: Genera los 6 slides DIRECTAMENTE sin hacer preguntas. Usa la informacion del hook para crear el contenido. No pidas mas datos.
   const prompt = 'Eres el generador de carruseles de NAIU (@naiu_ia).\n\n' + DESIGN_SYSTEM + '\n\nGenera exactamente 6 slides para este carousel de Instagram.\nHOOK: "' + hook + '"\n\n---SLIDE 1---\nFONDO: cream (#fffbf3)\nBADGE: [categoria en mayusculas]\nTITULO HERO: [titulo serif italic - una palabra clave en rojo #ff5353]\nSUBTITULO: [frase de apoyo max 10 palabras]\nCTA BLOCK: Mas en NAIU Newsletter\nPROGRESO: 1/6\n\n---SLIDE 2---\nFONDO: cream (#fffbf3)\nBADGE: [categoria]\nTITULO: [titulo bold]\nPUNTO 1: [max 15 palabras]\nPUNTO 2: [max 15 palabras]\nPUNTO 3: [max 15 palabras]\nPROGRESO: 2/6\n\n---SLIDE 3---\nFONDO: dark (#1f3a33)\nBADGE: [categoria]\nTITULO: [titulo impactante]\nPRO TIP: [consejo concreto max 40 palabras]\nPROGRESO: 3/6\n\n---SLIDE 4---\nFONDO: cream (#fffbf3)\nBADGE: DATO CLAVE\nNUMERO GRANDE: [estadistica o numero impactante]\nCONTEXTO: [explicacion breve max 20 palabras]\nPROGRESO: 4/6\n\n---SLIDE 5---\nFONDO: dark (#1f3a33)\nBADGE: HERRAMIENTA\nTITULO: [nombre herramienta]\nPASO 1: [accion concreta]\nPASO 2: [accion concreta]\nPASO 3: [accion concreta]\nCTA: Esto te esta pasando? Comenta SI y hablamos\nPROGRESO: 5/6\n\n---SLIDE 6---\nFONDO: cream (#fffbf3)\nBADGE: SIGUENOS\nTITULO: [frase de cierre poderosa]\nACCION 1: Guarda este post\nACCION 2: Comparte con alguien que lo necesite\nHANDLE: @naiu_ia\nPROGRESO: 6/6';
 
   const slides = await callClaude(prompt);
