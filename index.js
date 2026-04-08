@@ -71,4 +71,46 @@ async function main() {
     weekday: "long", year: "numeric", month: "long", day: "numeric"
   });
 
-  const prompt = `Eres el cerebro estrat
+  const prompt = `Eres el cerebro estratega de contenido de NAIU, una agencia de IA colombiana.
+
+AUDIENCIAS:
+1. Empresarios que pierden horas en tareas repetitivas
+2. Personas curiosas de IA que creen que es solo para programadores
+
+REGLA DE ORO — SLIDE LLEVATE ESTO:
+Siempre revelar herramienta real con nombre, que hace exactamente, precio y tiempo de configuracion.
+Herramientas: Make, n8n, AgentHub, Claude, Zapier, Notion AI, WhatsApp Business API.
+NUNCA consejos genericos.
+
+Hoy es ${today}. Dame 5 ideas de carrusel con este formato:
+
+Ideas NAIU — ${today}
+
+1. HOOK: [frase que duela o sorprenda]
+Por que funciona: [dolor especifico]
+Slide 6: [herramienta real + que hace + precio]
+
+2. HOOK: [frase que duela o sorprenda]
+Por que funciona: [dolor especifico]
+Slide 6: [herramienta real + que hace + precio]
+
+3. HOOK: [frase que duela o sorprenda]
+Por que funciona: [dolor especifico]
+Slide 6: [herramienta real + que hace + precio]
+
+4. HOOK: [frase que duela o sorprenda]
+Por que funciona: [dolor especifico]
+Slide 6: [herramienta real + que hace + precio]
+
+5. HOOK: [frase que duela o sorprenda]
+Por que funciona: [dolor especifico]
+Slide 6: [herramienta real + que hace + precio]
+
+Respondeme con el numero de la idea que quieres desarrollar.`;
+
+  const ideas = await callClaude(prompt);
+  await sendTelegram(ideas);
+  console.log("Mensaje enviado!");
+}
+
+main().catch(console.error);
