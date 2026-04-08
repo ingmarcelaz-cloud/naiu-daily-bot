@@ -2,13 +2,10 @@ const https = require('https');
 const http = require('http');
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
-const CHAT_ID = process.env.CHAT_ID;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = '33c91e9cb74c800ea6b4df4ec7d32787';
 const PORT = process.env.PORT || 3000;
-
-const DESIGN_SYSTEM = 'SISTEMA DE DISENO NAIU: Fondo claro #fffbf3, Fondo oscuro #1f3a33, Acento #ff5353. Patron: Slide1 cream, Slide2 cream, Slide3 dark, Slide4 cream, Slide5 dark, Slide6 cream. Titulo hero slide1 serif italic bold una palabra en rojo. Titulos resto sans-serif bold. Cuerpo max 60 palabras por slide. Badge pill arriba izquierda con dot rojo. Footer @naiu_ia + barra progreso. Dimensiones 1080x1350px.';
 
 let pendingIdeas = {};
 
@@ -37,7 +34,7 @@ async function callClaude(prompt) {
           if (parsed.content && parsed.content[0]) {
             resolve(parsed.content[0].text);
           } else {
-            reject(new Error('Error Claude: ' + JSON.stringify(parsed)));
+            reject(new Error('Error: ' + JSON.stringify(parsed)));
           }
         } catch(e) { reject(e); }
       });
@@ -93,7 +90,7 @@ async function saveToNotion(hook, date) {
     }, function(res) {
       let data = '';
       res.on('data', function(chunk) { data += chunk; });
-      res.on('end', function() { resolve(JSON.parse(data)); });
+      res.on('end', function() { resolve(data); });
     });
     req.on('error', reject);
     req.write(body);
@@ -102,7 +99,7 @@ async function saveToNotion(hook, date) {
 }
 
 async function getUsedIdeas() {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function(resolve) {
     const body = JSON.stringify({
       filter: { property: 'Estado', select: { equals: 'Usada' } }
     });
@@ -119,44 +116,16 @@ async function getUsedIdeas() {
       let data = '';
       res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
-        const parsed = JSON.parse(data);
-        const ideas = parsed.results ? parsed.results.map(function(p) {
-          return p.properties && p.properties.Idea && p.properties.Idea.title && p.properties.Idea.title[0] ? p.properties.Idea.title[0].text.content : '';
-        }).filter(Boolean) : [];
-        resolve(ideas);
+        try {
+          const parsed = JSON.parse(data);
+          const ideas = parsed.results ? parsed.results.map(function(p) {
+            return p.properties && p.properties.Idea && p.properties.Idea.title && p.properties.Idea.title[0] ? p.properties.Idea.title[0].text.content : '';
+          }).filter(Boolean) : [];
+          resolve(ideas);
+        } catch(e) { resolve([]); }
       });
     });
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-
-async function saveIdeasToNotion(ideas, date) {
-  return new Promise(function(resolve, reject) {
-    const body = JSON.stringify({
-      parent: { database_id: NOTION_DATABASE_ID },
-      properties: {
-        Idea: { title: [{ text: { content: 'IDEAS_DEL_DIA: ' + ideas.substring(0, 500) } }] },
-        Fecha: { date: { start: date } },
-        Estado: { select: { name: 'Pendiente' } }
-      }
-    });
-    const req = https.request({
-      hostname: 'api.notion.com',
-      path: '/v1/pages',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + NOTION_TOKEN,
-        'Notion-Version': '2022-06-28'
-      }
-    }, function(res) {
-      let data = '';
-      res.on('data', function(chunk) { data += chunk; });
-      res.on('end', function() { resolve(JSON.parse(data)); });
-    });
-    req.on('error', reject);
+    req.on('error', function() { resolve([]); });
     req.write(body);
     req.end();
   });
@@ -168,40 +137,128 @@ async function sendDailyIdeas(chatId) {
   });
 
   const usedIdeas = await getUsedIdeas();
-  const usedSection = usedIdeas.length > 0 ? '\nIDEAS YA USADAS (no repetir exactamente):\n' + usedIdeas.filter(function(i) { return !i.startsWith('IDEAS_DEL_DIA'); }).slice(-10).join('\n') + '\n' : '';
+  const usedSection = usedIdeas.length > 0 ? 'IDEAS YA USADAS (no repetir exactamente):\n' + usedIdeas.slice(-10).join('\n') + '\n\n' : '';
 
-  const prompt = 'Eres el cerebro estratega de contenido de NAIU, una agencia de IA colombiana.\n\nAUDIENCIAS:\n1. Empresarios que pierden horas en tareas repetitivas (metricas, correos, reportes, seguimiento)\n2. Personas curiosas de IA que creen que es solo para programadores\n' + usedSection + '\nREGLA DE ORO SLIDE 6:\nSiempre revelar herramienta real con nombre y que hace exactamente. SIN precios.\nTerminar con: Esto te esta pasando? Comenta SI y hablamos\nNUNCA consejos genericos. NUNCA poner precios.\n\nEJEMPLOS DE SLIDE 6 BUENOS:\n- Make conecta tu Gmail con Claude y responde correos automaticamente. Configuracion: 20 minutos.\n- n8n tiene un agente que revisa tus ventas cada lunes y manda resumen al Telegram.\n- AgentHub maneja WhatsApp, Instagram y correo desde un solo lugar sin que toques nada.\n\nTONO: Profesional, directo, sin relleno. Nunca motivacional. Como alguien que sabe y comparte lo que otros no cuentan.\n\nHoy es ' + today + '. Dame exactamente 5 ideas:\n\n1. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n2. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n3. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n4. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\n5. HOOK: [frase que duela o sorprenda]\nPor que funciona: [dolor especifico]\nSlide 6: [herramienta real + que hace + CTA]\n\nAl final escribe exactamente: Responde con 1, 2, 3, 4 o 5 para desarrollar esa idea en slides';
+  const prompt = 'Eres el cerebro estratega de NAIU, agencia de IA colombiana.\n\n' +
+    'AUDIENCIAS:\n' +
+    '1. Empresarios que pierden horas en tareas repetitivas: metricas, correos, reportes, seguimiento de clientes\n' +
+    '2. Personas curiosas de IA que creen que es solo para programadores\n\n' +
+    usedSection +
+    'REGLA DE ORO PARA SLIDE 6:\n' +
+    'Revelar herramienta real con nombre y que hace exactamente. SIN precios.\n' +
+    'Terminar SIEMPRE con: Esto te esta pasando? Comenta SI y hablamos\n' +
+    'NUNCA consejos genericos.\n\n' +
+    'EJEMPLOS BUENOS DE SLIDE 6:\n' +
+    '- Make conecta tu Gmail con Claude y responde correos automaticamente. Sin tocar nada. Esto te esta pasando? Comenta SI y hablamos\n' +
+    '- n8n revisa tus ventas cada lunes y manda resumen directo al Telegram. Esto te esta pasando? Comenta SI y hablamos\n' +
+    '- AgentHub maneja WhatsApp, Instagram y correo desde un solo lugar. Esto te esta pasando? Comenta SI y hablamos\n\n' +
+    'TONO: Directo, profesional, sin relleno. Como alguien que sabe y comparte lo que otros no cuentan. Nada motivacional.\n\n' +
+    'Hoy es ' + today + '. Dame EXACTAMENTE 5 ideas con este formato:\n\n' +
+    '1. HOOK: [frase que duela o sorprenda]\n' +
+    'Por que funciona: [dolor especifico]\n' +
+    'Slide 6: [herramienta real + que hace + CTA]\n\n' +
+    '2. HOOK: [frase que duela o sorprenda]\n' +
+    'Por que funciona: [dolor especifico]\n' +
+    'Slide 6: [herramienta real + que hace + CTA]\n\n' +
+    '3. HOOK: [frase que duela o sorprenda]\n' +
+    'Por que funciona: [dolor especifico]\n' +
+    'Slide 6: [herramienta real + que hace + CTA]\n\n' +
+    '4. HOOK: [frase que duela o sorprenda]\n' +
+    'Por que funciona: [dolor especifico]\n' +
+    'Slide 6: [herramienta real + que hace + CTA]\n\n' +
+    '5. HOOK: [frase que duela o sorprenda]\n' +
+    'Por que funciona: [dolor especifico]\n' +
+    'Slide 6: [herramienta real + que hace + CTA]\n\n' +
+    'Al final escribe exactamente esta linea: Responde con 1, 2, 3, 4 o 5 para desarrollar esa idea en slides';
 
   const ideas = await callClaude(prompt);
   pendingIdeas[chatId] = { ideas: ideas, date: new Date().toISOString().split('T')[0] };
-  await saveIdeasToNotion(ideas, new Date().toISOString().split('T')[0]);
   await sendTelegram(chatId, ideas);
 }
 
 async function generateSlides(chatId, ideaNumber) {
   const data = pendingIdeas[chatId];
   if (!data) {
-    await sendTelegram(chatId, 'Escribe /ideas para obtener nuevas ideas.');
+    await sendTelegram(chatId, 'Escribe /ideas para obtener nuevas ideas primero.');
     return;
   }
 
   const lines = data.ideas.split('\n');
   const hookLine = lines.find(function(l) {
-    return l.includes(ideaNumber + '. HOOK:') || l.includes('## ' + ideaNumber + '. HOOK:') || l.includes('##' + ideaNumber + ' HOOK:') || l.includes(ideaNumber + ') HOOK:');
+    const clean = l.trim();
+    return clean.startsWith(ideaNumber + '. HOOK:') ||
+           clean.startsWith(ideaNumber + ') HOOK:') ||
+           clean.includes('## ' + ideaNumber + '. HOOK:') ||
+           clean.includes('##' + ideaNumber + '. HOOK:');
   });
 
   if (!hookLine) {
-    await sendTelegram(chatId, 'Escribe /ideas primero para obtener ideas nuevas, luego responde con 1-5.');
+    await sendTelegram(chatId, 'Escribe /ideas primero y luego responde con 1, 2, 3, 4 o 5.');
     return;
   }
 
-  const hook = hookLine.replace(/.*HOOK:\s*/, '').replace(/"/g, '').trim();
+  const hook = hookLine.replace(/^.*HOOK:\s*/, '').replace(/"/g, '').trim();
   await sendTelegram(chatId, 'Generando los 6 slides para:\n"' + hook + '"\n\nEspera un momento...');
-  
-IMPORTANTE: Genera los 6 slides DIRECTAMENTE sin hacer preguntas. Usa la informacion del hook para crear el contenido. No pidas mas datos.
-  const prompt = 'Eres el generador de carruseles de NAIU (@naiu_ia).\n\n' + DESIGN_SYSTEM + '\n\nGenera exactamente 6 slides para este carousel de Instagram.\nHOOK: "' + hook + '"\n\n---SLIDE 1---\nFONDO: cream (#fffbf3)\nBADGE: [categoria en mayusculas]\nTITULO HERO: [titulo serif italic - una palabra clave en rojo #ff5353]\nSUBTITULO: [frase de apoyo max 10 palabras]\nCTA BLOCK: Mas en NAIU Newsletter\nPROGRESO: 1/6\n\n---SLIDE 2---\nFONDO: cream (#fffbf3)\nBADGE: [categoria]\nTITULO: [titulo bold]\nPUNTO 1: [max 15 palabras]\nPUNTO 2: [max 15 palabras]\nPUNTO 3: [max 15 palabras]\nPROGRESO: 2/6\n\n---SLIDE 3---\nFONDO: dark (#1f3a33)\nBADGE: [categoria]\nTITULO: [titulo impactante]\nPRO TIP: [consejo concreto max 40 palabras]\nPROGRESO: 3/6\n\n---SLIDE 4---\nFONDO: cream (#fffbf3)\nBADGE: DATO CLAVE\nNUMERO GRANDE: [estadistica o numero impactante]\nCONTEXTO: [explicacion breve max 20 palabras]\nPROGRESO: 4/6\n\n---SLIDE 5---\nFONDO: dark (#1f3a33)\nBADGE: HERRAMIENTA\nTITULO: [nombre herramienta]\nPASO 1: [accion concreta]\nPASO 2: [accion concreta]\nPASO 3: [accion concreta]\nCTA: Esto te esta pasando? Comenta SI y hablamos\nPROGRESO: 5/6\n\n---SLIDE 6---\nFONDO: cream (#fffbf3)\nBADGE: SIGUENOS\nTITULO: [frase de cierre poderosa]\nACCION 1: Guarda este post\nACCION 2: Comparte con alguien que lo necesite\nHANDLE: @naiu_ia\nPROGRESO: 6/6';
 
-  const slides = await callClaude(prompt);
+  const slidesPrompt = 'Eres el generador de carruseles de NAIU (@naiu_ia). Tu trabajo es generar los 6 slides DIRECTAMENTE sin hacer preguntas ni pedir mas informacion.\n\n' +
+    'SISTEMA DE DISENO NAIU:\n' +
+    '- Colores: fondo claro #fffbf3, fondo oscuro #1f3a33, acento rojo #ff5353\n' +
+    '- Patron de fondos obligatorio: Slide1=cream, Slide2=cream, Slide3=dark, Slide4=cream, Slide5=dark, Slide6=cream\n' +
+    '- Slide 1: titulo hero serif italic bold, UNA palabra en rojo #ff5353\n' +
+    '- Resto de slides: sans-serif bold para titulos\n' +
+    '- Maximo 60 palabras por slide\n' +
+    '- Badge pill arriba izquierda con dot rojo en cada slide\n' +
+    '- Footer: @naiu_ia + barra de progreso en cada slide\n' +
+    '- Dimensiones: 1080x1350px ratio 4:5\n\n' +
+    'HOOK DEL CAROUSEL: "' + hook + '"\n\n' +
+    'Genera EXACTAMENTE este formato sin variaciones:\n\n' +
+    '---SLIDE 1---\n' +
+    'FONDO: cream (#fffbf3)\n' +
+    'BADGE: [categoria en mayusculas]\n' +
+    'TITULO HERO: [titulo serif italic - marca UNA palabra en ROJO]\n' +
+    'SUBTITULO: [max 10 palabras]\n' +
+    'CTA BLOCK: Mas en NAIU Newsletter\n' +
+    'PROGRESO: 1/6\n\n' +
+    '---SLIDE 2---\n' +
+    'FONDO: cream (#fffbf3)\n' +
+    'BADGE: [categoria]\n' +
+    'TITULO: [titulo bold]\n' +
+    'PUNTO 1: [max 15 palabras]\n' +
+    'PUNTO 2: [max 15 palabras]\n' +
+    'PUNTO 3: [max 15 palabras]\n' +
+    'PROGRESO: 2/6\n\n' +
+    '---SLIDE 3---\n' +
+    'FONDO: dark (#1f3a33)\n' +
+    'BADGE: [categoria]\n' +
+    'TITULO: [titulo impactante]\n' +
+    'PRO TIP: [consejo concreto max 40 palabras]\n' +
+    'PROGRESO: 3/6\n\n' +
+    '---SLIDE 4---\n' +
+    'FONDO: cream (#fffbf3)\n' +
+    'BADGE: DATO CLAVE\n' +
+    'NUMERO GRANDE: [estadistica o numero impactante]\n' +
+    'CONTEXTO: [max 20 palabras]\n' +
+    'PROGRESO: 4/6\n\n' +
+    '---SLIDE 5---\n' +
+    'FONDO: dark (#1f3a33)\n' +
+    'BADGE: HERRAMIENTA\n' +
+    'TITULO: [nombre herramienta]\n' +
+    'QUE HACE: [descripcion concreta]\n' +
+    'PASO 1: [accion]\n' +
+    'PASO 2: [accion]\n' +
+    'PASO 3: [accion]\n' +
+    'CTA: Esto te esta pasando? Comenta SI y hablamos\n' +
+    'PROGRESO: 5/6\n\n' +
+    '---SLIDE 6---\n' +
+    'FONDO: cream (#fffbf3)\n' +
+    'BADGE: SIGUENOS\n' +
+    'TITULO: [frase de cierre poderosa]\n' +
+    'ACCION 1: Guarda este post\n' +
+    'ACCION 2: Comparte con alguien que lo necesite\n' +
+    'HANDLE: @naiu_ia\n' +
+    'PROGRESO: 6/6';
+
+  const slides = await callClaude(slidesPrompt);
   await sendTelegram(chatId, slides);
   await saveToNotion(hook, data.date);
   delete pendingIdeas[chatId];
@@ -228,7 +285,7 @@ const server = http.createServer(function(req, res) {
           }
         }
       } catch(e) {
-        console.error('Error webhook:', e);
+        console.error('Error:', e);
       }
       res.writeHead(200);
       res.end('OK');
