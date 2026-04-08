@@ -7,7 +7,7 @@ const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 async function callClaude(prompt) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
-      model: "claude-opus-4-5",
+     model: "claude-haiku-4-5-20251001",
       max_tokens: 2048,
       messages: [{ role: "user", content: prompt }],
     });
@@ -23,10 +23,19 @@ async function callClaude(prompt) {
     }, (res) => {
       let data = "";
       res.on("data", (chunk) => data += chunk);
-      res.on("end", () => {
-        const parsed = JSON.parse(data);
-        resolve(parsed.content[0].text);
-      });
+     res.on("end", () => {
+  try {
+    const parsed = JSON.parse(data);
+    if (parsed.content && parsed.content[0]) {
+      resolve(parsed.content[0].text);
+    } else {
+      console.error("Respuesta inesperada:", JSON.stringify(parsed));
+      reject(new Error("Respuesta inesperada de Claude: " + JSON.stringify(parsed)));
+    }
+  } catch(e) {
+    reject(e);
+  }
+});
     });
     req.on("error", reject);
     req.write(body);
