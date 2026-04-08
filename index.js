@@ -61,9 +61,10 @@ async function callClaude(prompt) {
       path: "/v1/messages",
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+  'Content-Type': 'application/json',
+  'x-api-key': ANTHROPIC_API_KEY,
+  'anthropic-version': '2023-06-01',
+},
       },
     }, (res) => {
       let data = "";
